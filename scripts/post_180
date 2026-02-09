@@ -1,0 +1,41 @@
+import nibabel as nib
+import numpy as np
+from pathlib import Path
+
+INP = Path(r"PATH")
+OUT = Path(r"PATH")
+OUT.mkdir(exist_ok=True)
+
+I = np.eye(4, dtype=np.float32)
+
+files = sorted(INP.glob("*.nii*"))
+print("Files:", len(files))
+
+for i, p in enumerate(files, start=1):
+    nii = nib.load(str(p))
+    x = np.asanyarray(nii.dataobj).astype(np.float32)
+
+    # sicherstellen (H, W)
+    if x.ndim == 3 and x.shape[2] == 1:
+        x2d = x[:, :, 0]
+    elif x.ndim == 2:
+        x2d = x
+    else:
+        continue  # sollte bei POST_FINAL_ALL praktisch nicht passieren
+
+    # echte 180°-Rotation
+    x_rot = np.rot90(x2d, 2)
+
+    # zurück zu (H, W, 1)
+    x_rot = x_rot[:, :, None]
+
+    out_nii = nib.Nifti1Image(x_rot.astype(np.float32), I)
+    out_nii.set_qform(I, code=1)
+    out_nii.set_sform(I, code=1)
+
+    nib.save(out_nii, str(OUT / p.name))
+
+    if i % 2000 == 0:
+        print("written:", i)
+
+print("DONE. OUT:", OUT)
